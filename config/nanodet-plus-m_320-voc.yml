@@ -1,0 +1,135 @@
+# nanodet-plus-m_320
+# COCO mAP(0.5:0.95) = 0.270
+#             AP_50  = 0.418
+#             AP_75  = 0.281
+#           AP_small = 0.083
+#               AP_m = 0.278
+#               AP_l = 0.451
+
+save_dir: workspace/nanodet-plus-m_320  # 存放结果路径
+model:
+  weight_averager:
+    name: ExpMovingAverager
+    decay: 0.9998
+  arch:
+    name: NanoDetPlus              # NanoDetPlus
+    detach_epoch: 10
+    backbone:
+      name: ShuffleNetV2           # 默认使用shuffleNetV2
+      model_size: 1.0x             # 模型缩放系数，更大的模型就是相应地扩大各层feature map的大小
+      out_stages: [2,3,4]          # backbone中输出特征到FPN的stage
+      activation: LeakyReLU        # 激活函数
+    fpn:
+      name: GhostPAN               # 用ghostNet的模块对不同特征层进行融合
+      in_channels: [116, 232, 464] # 输入fpn的geature map 尺寸
+      out_channels: 96
+      kernel_size: 5               # 卷积核大小
+      num_extra_level: 1
+      use_depthwise: True          # 使用深度可分离卷积
+      activation: LeakyReLU        # 激活函数
+    head:
+      name: NanoDetPlusHead        # 检测头
+      num_classes: 36              # 类别数
+      input_channel: 96            # 输入通道数
+      feat_channels: 96            #
+      stacked_convs: 2             # head的卷积层数
+      kernel_size: 5               # 卷积核的大小
+      strides: [8, 16, 32, 64]     # 四个头，分别对应了不同尺度特征的检测，不同head检测时的下采样倍数
+      activation: LeakyReLU        # 激活函数
+      reg_max: 7                   # 用于dfl的参数，head的回归分支会预测框的分布，即用回归reg_max+1个离散的几个值来表示一个分布
+      norm_cfg:
+        type: BN                   # head选用batch norm 进行归一化操作
+      loss:
+        loss_qfl:
+          name: QualityFocalLoss  # loss继承了nanodet，使用GFL，并且这些loss有不同的权重
+          use_sigmoid: True
+          beta: 2.0
+          loss_weight: 1.0
+        loss_dfl:
+          name: DistributionFocalLoss
+          loss_weight: 0.25
+        loss_bbox:
+          name: GIoULoss
+          loss_weight: 2.0
+        loss_pts:                  
+          name: WingLoss            # TODO 这里新增了，这里不动也能正常训练？ 继续看代码
+          loss_weight: 1.0
+    # Auxiliary head, only use in training time.
+    # 新增的辅助模块，（常规检测头，表达能力更强，只在训练的时候用）
+    aux_head:
+      name: SimpleConvHead
+      num_classes: 36             # 类别
+      input_channel: 192          # 输入通道数
+      feat_channels: 192
+      stacked_convs: 4            # 四层卷积
+      strides: [8, 16, 32, 64]    # 对应四个头
+      activation: LeakyReLU
+      reg_max: 7
+
+
+# VOC格式数据
+class_names: &class_names ['B_G', 'B_1', 'B_2', 'B_3', 'B_4', 'B_5', 'B_O', 'B_Bs', 'B_Bb',
+                           'R_G', 'R_1', 'R_2', 'R_3', 'R_4', 'R_5', 'R_O', 'R_Bs', 'R_Bb',
+                           'N_G', 'N_1', 'N_2', 'N_3', 'N_4', 'N_5', 'N_O', 'N_Bs', 'N_Bb',
+                           'P_G', 'P_1', 'P_2', 'P_3', 'P_4', 'P_5', 'P_O', 'P_Bs', 'P_Bb' ]  #Please fill in the category names (not include background category)
+
+
+data:
+  train:
+    name: XMLDataset
+    class_names: *class_names
+    img_path: /www/DataSets/SWU-GKD-dataset/train/JPEGImages         #Please fill in train image path
+    ann_path: /www/DataSets/SWU-GKD-dataset/train/Annotations         #Please fill in train xml path
+    input_size: [320,320] #[w,h]
+    keep_ratio: True
+    pipeline:
+      perspective: 0.0
+      scale: [0.6, 1.4]
+      stretch: [[1, 1], [1, 1]]
+      rotation: 0
+      shear: 0
+      translate: 0.2
+      flip: 0.5
+      brightness: 0.2
+      contrast: [0.8, 1.2]
+      saturation: [0.8, 1.2]
+      normalize: [[103.53, 116.28, 123.675], [57.375, 57.12, 58.395]]
+  val:
+    name: XMLDataset
+    class_names: *class_names
+    img_path: /www/DataSets/SWU-GKD-dataset/test/JPEGImages       #Please fill in val image path
+    ann_path: /www/DataSets/SWU-GKD-dataset/test/Annotations       #Please fill in val xml path
+    input_size: [320,320]         #[w,h]
+    keep_ratio: True
+    pipeline:
+      normalize: [[103.53, 116.28, 123.675], [57.375, 57.12, 58.395]]
+
+device:
+  gpu_ids: [0]                    # Set like [0, 1, 2, 3] if you have multi-GPUs
+  workers_per_gpu: 4
+  batchsize_per_gpu: 4
+
+schedule:
+#  resume:
+#  load_model: YOUR_MODEL_PATH
+  optimizer:
+    name: AdamW
+    lr: 0.001
+    weight_decay: 0.05
+  warmup:
+    name: linear
+    steps: 500
+    ratio: 0.0001
+  total_epochs: 300
+  lr_schedule:
+    name: CosineAnnealingLR
+    T_max: 300
+    eta_min: 0.00005
+  val_intervals: 10
+grad_clip: 35
+evaluator:
+  name: CocoDetectionEvaluator
+  save_key: mAP
+
+log:
+  interval: 10

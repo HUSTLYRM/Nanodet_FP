@@ -1,3 +1,26 @@
+## RM装甲板检测 -nanodet 四点
+更改nanodet，应用于RM装甲板检测
+
+`nanodet-fp-v1.0`
+- 参考了nanodet-plus-m_320-voc.yml，更改为nanodet-plus-m_320-voc.yml, 更改训练、测试路径、num_classes等，将COCO（json）更换为XML格式
+- 更改dataset中数据读取部分，新增points读取
+- loss部分新增WingLoss损失函数
+- 更新head，新增points回归，其实就是新增输出通道（不同于yolox，输出是聚合在一起的），参考bbox对points进行更新
+- 更新head中的标签分配，为了简化，并未对points分配，而是points直接利用bbox分配的结果（通用一套index索引）
+- 增加了大量辅助注释（部分参考了跃鹿战队的博客讲解，见Thanks）
+
+#### Other
+在代码中使用了大量的TODO标签来指明具体修改的地方
+
+#### Thanks
+跃鹿战队对于nanodet目标检测的博客以及部分注释
+
+
+
+
+
+---
+以下为nanodet文档
 <div align="center">
 
 <img src="docs/imgs/Title.jpg" />

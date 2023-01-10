@@ -9,6 +9,11 @@
 - 更新head中的标签分配，为了简化，并未对points分配，而是points直接利用bbox分配的结果（通用一套index索引）
 - 增加了大量辅助注释（部分参考了跃鹿战队的博客讲解，见Thanks）
 
+#### Train
+```
+python tools/train.py config/nanodet-plus-m_320-voc.yml
+```
+
 #### Other
 在代码中使用了大量的TODO标签来指明具体修改的地方
 

@@ -8,6 +8,10 @@
 - 更新head，新增points回归，其实就是新增输出通道（不同于yolox，输出是聚合在一起的），参考bbox对points进行更新
 - 更新head中的标签分配，为了简化，并未对points分配，而是points直接利用bbox分配的结果（通用一套index索引）
 - 增加了大量辅助注释（部分参考了跃鹿战队的博客讲解，见Thanks）
+`nanodet-fp-v1.1`
+- 更新了AGM部分的head，更好的辅助训练
+- 增加了openvino推理部分的代码
+- 增加了polygoniouloss损失函数代码
 
 #### Train
 ```

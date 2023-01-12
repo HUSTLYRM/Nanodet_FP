@@ -13,8 +13,20 @@
 ```
 python tools/train.py config/nanodet-plus-m_320-voc.yml
 ```
+#### 服务器训练使用screen
+screen存在两种模式，Attached和Detached
+Attached: 可以认为是打开了终端，可以看做是有机器打开着这个终端
+Detached: 可以认为是挂起了中断，也就是没有机器直接连接这个终端，但是这个终端在处理进程
+注意：VScode等连接服务器，如果不进行screen挂起，当你关闭窗口，对应的训练进行会被kill，训练就停止了
+以下给出了最长用的几个相关命令（基本够用了），其余根据需要查阅资料
+···
+screen -S xxx       # 创建screen会话
+screen -ls          # 列出所有的screen，以及对应的状态
+screen -r xxx       # 如果这个screen是Detached，就连接上这个终端在本地显示（会加载之前终端中的内容）
+screen -d xxx       # 将某个screen挂起，一般是在另一个终端命令行中进行，手动关闭某一个终端，也会挂起这个终端
+···
 
-#### Visualize
+#### Visualize Log
 ```
 cd <YOUR_SAVE_DIR>
 tensorboard --logdir ./
@@ -23,6 +35,7 @@ tensorboard --logdir ./
 ```
 python tools/export_onnx.py --cfg_path ${CONFIG_PATH} --model_path ${PYTORCH_MODEL_PATH}
 ```
+对于导出的onnx格式的模型，可以使用netron或者飞桨的visualDL，进行可视化，可以直观的观察
 #### Other
 在代码中使用了大量的TODO标签来指明具体修改的地方
 

@@ -14,6 +14,15 @@
 python tools/train.py config/nanodet-plus-m_320-voc.yml
 ```
 
+#### Visualize
+```
+cd <YOUR_SAVE_DIR>
+tensorboard --logdir ./
+```
+#### Export onnx
+```
+python tools/export_onnx.py --cfg_path ${CONFIG_PATH} --model_path ${PYTORCH_MODEL_PATH}
+```
 #### Other
 在代码中使用了大量的TODO标签来指明具体修改的地方
 

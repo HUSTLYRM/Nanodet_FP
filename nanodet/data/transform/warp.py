@@ -143,7 +143,7 @@ def warp_and_resize(
     keep_ratio: bool = True,
 ):
     # TODO: background, type
-    raw_img = meta["img"]
+    raw_img = meta["img"]            #(H,W,C)
     height = raw_img.shape[0]  # shape(h,w,c)
     width = raw_img.shape[1]
 
@@ -175,16 +175,20 @@ def warp_and_resize(
         T = get_translate_matrix(warp_kwargs["translate"], width, height)
     else:
         T = get_translate_matrix(0, width, height)
+    
     M = T @ C
+    
     # M = T @ Sh @ R @ Str @ P @ C
     ResizeM = get_resize_matrix((width, height), dst_shape, keep_ratio)
     M = ResizeM @ M
-    img = cv2.warpPerspective(raw_img, M, dsize=tuple(dst_shape))
+    img = cv2.warpPerspective(raw_img, M, dsize=tuple(dst_shape))       # 将原始的图片映射成对应的大小
     meta["img"] = img
     meta["warp_matrix"] = M
     if "gt_bboxes" in meta:
         boxes = meta["gt_bboxes"]
         meta["gt_bboxes"] = warp_boxes(boxes, M, dst_shape[0], dst_shape[1])
+        points = meta["gt_points"]
+        meta["gt_points"] = warp_points(points, M, dst_shape[0], dst_shape[1])
     if "gt_bboxes_ignore" in meta:
         bboxes_ignore = meta["gt_bboxes_ignore"]
         meta["gt_bboxes_ignore"] = warp_boxes(
@@ -201,25 +205,43 @@ def warp_and_resize(
 
 
 def warp_boxes(boxes, M, width, height):
-    n = len(boxes)
+    n = len(boxes)  # 2125： 可以认为是锚点的个数（预测目标的个数）
     if n:
         # warp points
-        xy = np.ones((n * 4, 3))
-        xy[:, :2] = boxes[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(
+        xy = np.ones((n * 4, 3))    
+        xy[:, :2] = boxes[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(     # x1y1, x2y2, x1y2, x2y1
             n * 4, 2
-        )  # x1y1, x2y2, x1y2, x2y1
-        xy = xy @ M.T  # transform
-        xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
+        )  
+        xy = xy @ M.T                                       # transform          每个点都映射到原来的图片上
+        xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)         # rescale
         # create new boxes
-        x = xy[:, [0, 2, 4, 6]]
-        y = xy[:, [1, 3, 5, 7]]
-        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
+        x = xy[:, [0, 2, 4, 6]]                             # 所有点的横纵坐标
+        y = xy[:, [1, 3, 5, 7]]             
+        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T       # 再把所有点找出xmin,ymin
         # clip boxes
         xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
         xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
         return xy.astype(np.float32)
     else:
         return boxes
+
+# 这个函数参考了 https://github.com/1248289414/nanodet_keypoint/blob/rmdet/nanodet/data/transform/warp.py 
+# 下面这个函数就取自这个项目，网络的结构略有不同
+def warp_points(keypoints, M, width, height):        # TODO : 仿照 wrap_bboxes 进行处理
+    n = len(keypoints)
+    if n:
+        # warp points
+        xy = np.ones((n * 4, 3))
+        # x1y1, x2y2, x1y2, x2y1
+        xy[:, :2] = keypoints.reshape(n * 4, 2)
+        xy = xy @ M.T  # transform
+        xy = (xy[:, :2] / xy[:, 2:3]).reshape(n, 8)  # rescale
+        # clip
+        xy[:, [0, 2, 4, 6]] = xy[:, [0, 2, 4, 6]].clip(0, width)
+        xy[:, [1, 3, 5 ,7]] = xy[:, [1, 3, 5 ,7]].clip(0, height)
+        return xy
+    else:
+        return keypoints
 
 
 # def warp_keypoints(keypoints, M, width, height):
@@ -344,10 +366,12 @@ class ShapeTransform:
         M = ResizeM @ M
         img = cv2.warpPerspective(raw_img, M, dsize=tuple(dst_shape))
         meta_data["img"] = img
-        meta_data["warp_matrix"] = M
+        meta_data["warp_matrix"] = M    # warp_matrix矩阵
         if "gt_bboxes" in meta_data:
             boxes = meta_data["gt_bboxes"]
-            meta_data["gt_bboxes"] = warp_boxes(boxes, M, dst_shape[0], dst_shape[1])
+            points = meta_data["gt_points"]
+            meta_data["gt_bboxes"] = warp_boxes(boxes, M, dst_shape[0], dst_shape[1])       # 这里对gt_bbox进行了处理
+            meta_data["gt_points"] = warp_points(points, M, dst_shape[0], dst_shape[1])     # TODO 新增对于gt_points的处理
         if "gt_bboxes_ignore" in meta_data:
             bboxes_ignore = meta_data["gt_bboxes_ignore"]
             meta_data["gt_bboxes_ignore"] = warp_boxes(

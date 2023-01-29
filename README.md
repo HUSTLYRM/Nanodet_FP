@@ -27,6 +27,11 @@
 python tools/train.py config/nanodet-plus-m_320-voc.yml
 ```
 
+#### OpenVINO优化
+```
+python3 mo.py --input_model /home/zhiyu/nanodet/nanodet.onnx --output_dir /home/zhiyu/nanodet/ 
+```
+
 #### 服务器训练使用screen
 screen存在两种模式，Attached和Detached
 

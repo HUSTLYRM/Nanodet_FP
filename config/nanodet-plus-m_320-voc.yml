@@ -1,14 +1,7 @@
-# nanodet-plus-m_320
-# COCO mAP(0.5:0.95) = 0.270
-#             AP_50  = 0.418
-#             AP_75  = 0.281
-#           AP_small = 0.083
-#               AP_m = 0.278
-#               AP_l = 0.451
+save_dir: /home/zengyj/nanodet/nanodet-main/workspace/nanodet-plus-m-new  # 存放训练结果的路径(包括了训练的日志以及保存的模型)
 
-save_dir: workspace/nanodet-plus-m_320  # 存放结果路径
 model:
-  weight_averager:
+  weight_averager:                 # 不太清楚, 默认就好了
     name: ExpMovingAverager
     decay: 0.9998
   arch:
@@ -31,7 +24,7 @@ model:
       name: NanoDetPlusHead        # 检测头
       num_classes: 36              # 类别数
       input_channel: 96            # 输入通道数
-      feat_channels: 96            #
+      feat_channels: 96            # 特征通道数
       stacked_convs: 2             # head的卷积层数
       kernel_size: 5               # 卷积核的大小
       strides: [8, 16, 32, 64]     # 四个头，分别对应了不同尺度特征的检测，不同head检测时的下采样倍数
@@ -41,7 +34,7 @@ model:
         type: BN                   # head选用batch norm 进行归一化操作
       loss:
         loss_qfl:
-          name: QualityFocalLoss  # loss继承了nanodet，使用GFL，并且这些loss有不同的权重
+          name: QualityFocalLoss   # loss继承了nanodet，使用GFL，并且这些loss有不同的权重
           use_sigmoid: True
           beta: 2.0
           loss_weight: 1.0
@@ -52,8 +45,8 @@ model:
           name: GIoULoss
           loss_weight: 2.0
         loss_pts:                  
-          name: WingLoss            # TODO 这里新增了，这里不动也能正常训练？ 继续看代码
-          loss_weight: 1.0
+          name: WingLoss            # TODO 这里新增了loss_pts   (没增加这里的时候，也能正常训练)  这里是看了300个epoch训练后的数据，发现300个epoch的效果不明显
+          loss_weight: 0.05
     # Auxiliary head, only use in training time.
     # 新增的辅助模块，（常规检测头，表达能力更强，只在训练的时候用）
     aux_head:
@@ -73,45 +66,44 @@ class_names: &class_names ['B_G', 'B_1', 'B_2', 'B_3', 'B_4', 'B_5', 'B_O', 'B_B
                            'N_G', 'N_1', 'N_2', 'N_3', 'N_4', 'N_5', 'N_O', 'N_Bs', 'N_Bb',
                            'P_G', 'P_1', 'P_2', 'P_3', 'P_4', 'P_5', 'P_O', 'P_Bs', 'P_Bb' ]  #Please fill in the category names (not include background category)
 
-
 data:
   train:
     name: XMLDataset
     class_names: *class_names
-    img_path: /www/DataSets/SWU-GKD-dataset/train/JPEGImages         #Please fill in train image path
-    ann_path: /www/DataSets/SWU-GKD-dataset/train/Annotations         #Please fill in train xml path
-    input_size: [320,320] #[w,h]
-    keep_ratio: True
+    img_path: /home/zengyj/nanodet/dataset/train/images          #Please fill in train image path
+    ann_path: /home/zengyj/nanodet/dataset/train/xml        #Please fill in train xml path
+    input_size: [320,320]                                             #[w,h]
+    keep_ratio: False                          # TODO 注意：使用了keep_ratio时，网络单个feat尺寸也会发生一定的变化（例如40x40变成了32x40（原尺寸1024x1280））
     pipeline:
-      perspective: 0.0
-      scale: [0.6, 1.4]
-      stretch: [[1, 1], [1, 1]]
-      rotation: 0
-      shear: 0
-      translate: 0.2
-      flip: 0.5
+      # perspective: 0.0
+      # scale: [0.6, 1.4]                   # TODO 把这些增强操作pipeline关闭，`暂时`不考虑 ( 开启后wrap比较复杂 )
+      # stretch: [[1, 1], [1, 1]]           # 这里开启这些pipeline，会出错，因为在修改warp时，并没头
+      # rotation: 0
+      # shear: 0
+      # translate: 0.2
+      # flip: 0.5
       brightness: 0.2
       contrast: [0.8, 1.2]
       saturation: [0.8, 1.2]
       normalize: [[103.53, 116.28, 123.675], [57.375, 57.12, 58.395]]
   val:
     name: XMLDataset
-    class_names: *class_names
-    img_path: /www/DataSets/SWU-GKD-dataset/test/JPEGImages       #Please fill in val image path
-    ann_path: /www/DataSets/SWU-GKD-dataset/test/Annotations       #Please fill in val xml path
+    class_names: *class_names                                       # 这里随后要修改
+    img_path: /home/zengyj/nanodet/dataset/val/images        #Please fill in val image path
+    ann_path: /home/zengyj/nanodet/dataset/val/xml       #Please fill in val xml path
     input_size: [320,320]         #[w,h]
-    keep_ratio: True
+    keep_ratio: False
     pipeline:
       normalize: [[103.53, 116.28, 123.675], [57.375, 57.12, 58.395]]
 
 device:
   gpu_ids: [0]                    # Set like [0, 1, 2, 3] if you have multi-GPUs
-  workers_per_gpu: 4
-  batchsize_per_gpu: 4
+  workers_per_gpu: 16             # TODO  命令行中给出的提示，支持16个进程处理，建议num_workers修改成16, 根据提示修改的
+  batchsize_per_gpu: 8
 
 schedule:
-#  resume:
-#  load_model: YOUR_MODEL_PATH
+  # resume:                                                                       # 恢复训练时设置，新的训练时，注意不需要设置
+  #   load_model: /home/zengyj/nanodet/nanodet-main/workspace/nanodet-plus-m_320/model_last.ckpt
   optimizer:
     name: AdamW
     lr: 0.001
@@ -120,12 +112,12 @@ schedule:
     name: linear
     steps: 500
     ratio: 0.0001
-  total_epochs: 300
+  total_epochs: 600
   lr_schedule:
     name: CosineAnnealingLR
     T_max: 300
     eta_min: 0.00005
-  val_intervals: 10
+  val_intervals: 20          # 每个几轮训练，进行一次验证
 grad_clip: 35
 evaluator:
   name: CocoDetectionEvaluator

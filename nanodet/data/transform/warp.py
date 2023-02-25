@@ -225,9 +225,10 @@ def warp_boxes(boxes, M, width, height):
     else:
         return boxes
 
+# TODO : 仿照 wrap_bboxes 对 points 进行处理
 # 这个函数参考了 https://github.com/1248289414/nanodet_keypoint/blob/rmdet/nanodet/data/transform/warp.py 
 # 下面这个函数就取自这个项目，网络的结构略有不同
-def warp_points(keypoints, M, width, height):        # TODO : 仿照 wrap_bboxes 进行处理
+def warp_points(keypoints, M, width, height):        
     n = len(keypoints)
     if n:
         # warp points
@@ -239,7 +240,7 @@ def warp_points(keypoints, M, width, height):        # TODO : 仿照 wrap_bboxes
         # clip
         xy[:, [0, 2, 4, 6]] = xy[:, [0, 2, 4, 6]].clip(0, width)
         xy[:, [1, 3, 5 ,7]] = xy[:, [1, 3, 5 ,7]].clip(0, height)
-        return xy
+        return xy.astype(np.float32)
     else:
         return keypoints
 
@@ -382,5 +383,4 @@ class ShapeTransform:
                 meta_data["gt_masks"][i] = cv2.warpPerspective(
                     mask, M, dsize=tuple(dst_shape)
                 )
-
         return meta_data

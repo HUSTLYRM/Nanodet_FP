@@ -68,7 +68,7 @@ public:
 
     // modify these parameters to the same with your config if you want to use your own model
     // TODO: input_size修改成和模型大小一样
-    int input_size[2] = {320, 320}; // input height and width   
+    int input_size[2] = {416, 416}; // input height and width   
     // TODO: num_class修改成和模型一致
     int num_class = 36; // number of classes. 80 for COCO   
     // TODO: reg_max和模型一致就可以
@@ -86,6 +86,7 @@ private:
     void decode_infer(const float*& pred, std::vector<CenterPrior>& center_priors, float threshold, std::vector<std::vector<BoxInfo>>& bbox_results, std::vector<std::vector<PtsInfo>>& pts_results);
     
     BoxInfo disPred2Bbox(const float*& dfl_det, int label, float score, int x, int y, int stride);
+    PtsInfo disPred2Pts(const float*& dfl_det, int label, float score, int x, int y, int stride);
     PtsInfo pred2Pts(const float*& pred, int label, float score);
 
     static void nms(std::vector<BoxInfo>& result, float nms_threshold);

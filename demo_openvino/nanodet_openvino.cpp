@@ -81,7 +81,7 @@ NanoDet::NanoDet(const char* model_path)
     for (auto &output_info : outputs_map)
     {
         //std::cout<< "Output:" << output_info.first <<std::endl;
-        output_info.second->setPrecision(InferenceEngine::Precision::FP16); // 设置了精度，速度不高的时候，或许可以考虑处理一下
+        output_info.second->setPrecision(InferenceEngine::Precision::FP32); // 设置了精度，速度不高的时候，或许可以考虑处理一下
     }
     
     //get network
@@ -129,6 +129,7 @@ void NanoDet::preprocess(cv::Mat& image, InferenceEngine::Blob::Ptr& blob)
 // 检测 input图片， score_threshold得分阈值， nms_threshold后处理阈值
 void NanoDet::detect(cv::Mat image, float score_threshold, float nms_threshold, std::vector<BoxInfo>& bbox_dets, std::vector<PtsInfo>& pts_dets)
 {
+    // printf("[Jingyu]:begin detect\n");
     //auto start = std::chrono::steady_clock::now();
 
     InferenceEngine::Blob::Ptr input_blob = infer_request_.GetBlob(input_name_);
@@ -187,9 +188,10 @@ void NanoDet::detect(cv::Mat image, float score_threshold, float nms_threshold, 
 // 解码推理结果 pred是结果地址， center_priors方便bbox， threshold阈值，
 void NanoDet::decode_infer(const float*& pred, std::vector<CenterPrior>& center_priors, float threshold, std::vector<std::vector<BoxInfo>>& bbox_results, std::vector<std::vector<PtsInfo>>& pts_results)
 {
+    // printf("[Jingyu]:begin decode_infer\n");
     const int num_points = center_priors.size();                // 中心点的个数
     // TODO 增加4个点的部分，num_channels + 8
-    const int num_channels = num_class + (reg_max + 1) * 4 + 8; //通道的个数
+    const int num_channels = num_class + (reg_max + 1) * 12; //通道的个数
     //printf("num_points:%d\n", num_points);
 
     //cv::Mat debug_heatmap = cv::Mat::zeros(feature_h, feature_w, CV_8UC3);
@@ -206,7 +208,7 @@ void NanoDet::decode_infer(const float*& pred, std::vector<CenterPrior>& center_
         // 先获取这个框这里的类别
         for (int label = 0; label < num_class; label++)     // 遍历所有的类别
         {
-            if (pred[idx * num_channels + label] > score)   // 相当于找出类别的得分最大值，它带有的标签即位该类别的标签
+            if (pred[idx * num_channels + label] / 10 > score)   // 相当于找出类别的得分最大值，它带有的标签即位该类别的标签
             {
                 score = pred[idx * num_channels + label];   // float
                 cur_label = label;
@@ -221,9 +223,9 @@ void NanoDet::decode_infer(const float*& pred, std::vector<CenterPrior>& center_
             // 根据dis和中心点解析出bbox并将结果存放到
             bbox_results[cur_label].push_back(this->disPred2Bbox(bbox_pred, cur_label, score, ct_x, ct_y, stride));
 
-            const float* pts_pred = pred + idx * num_channels + num_class + 4 * (reg_max + 1);     // 找到bbox的起点
+            const float* pts_pred = pred + idx * num_channels + num_class + 4 * (reg_max + 1);     // TODO 找到bbox的起点
 
-            pts_results[cur_label].push_back(this->pred2Pts(pts_pred, cur_label, score));
+            pts_results[cur_label].push_back(this->disPred2Pts(pts_pred, cur_label, score, ct_x, ct_y, stride));
             //debug_heatmap.at<cv::Vec3b>(row, col)[0] = 255;
             //cv::imshow("debug", debug_heatmap);
         }
@@ -301,6 +303,52 @@ BoxInfo NanoDet::disPred2Bbox(const float*& dfl_det, int label, float score, int
     // 得到bbox信息
     return BoxInfo { xmin, ymin, xmax, ymax, score, label };
 }
+
+
+// TODO 新增 center point + dis 转换成 pts
+PtsInfo NanoDet::disPred2Pts(const float*& dfl_det, int label, float score, int x, int y, int stride)
+{
+    // 获取原图的中心点的坐标
+    float ct_x = x * stride;
+    float ct_y = y * stride;
+    std::vector<float> dis_pred;
+    dis_pred.resize(8); // 存放8个数据
+    for (int i = 0; i < 8; i++)
+    {
+        float dis = 0;
+        float* dis_after_sm = new float[reg_max + 1];
+        activation_function_softmax(dfl_det + i * (reg_max + 1), dis_after_sm, reg_max + 1);
+        // 积分得到最终的结果
+        for (int j = 0; j < reg_max + 1; j++)
+        {
+            dis += j * dis_after_sm[j];
+        }
+        dis *= stride;
+        //std::cout << "dis:" << dis << std::endl;
+        dis_pred[i] = dis;
+        delete[] dis_after_sm;
+    }
+    
+    // 使用min、max来限制坐标
+    // 左上角点
+    float x1 = (std::max)(ct_x - dis_pred[0], .0f);   
+    float y1 = (std::max)(ct_y - dis_pred[1], .0f);
+
+    float x2 = (std::max)(ct_x - dis_pred[2], .0f);   
+    float y2 = (std::min)(ct_y + dis_pred[3], (float)this->input_size[0]);
+
+    float x3 = (std::min)(ct_x + dis_pred[4], (float)this->input_size[1]);
+    float y3 = (std::min)(ct_x + dis_pred[5], (float)this->input_size[0]);
+
+    // 右下角点
+    float x4 = (std::min)(ct_x + dis_pred[6], (float)this->input_size[1]);
+    float y4 = (std::max)(ct_x - dis_pred[7], .0f); 
+
+    // std::cout << xmin << "," << ymin << "," << xmax << "," << xmax << "," << std::endl;
+    // 得到bbox信息
+    return PtsInfo { x1, y1, x2, y2, x3, y3, x4, y4, score, label };
+}
+
 
 // nms先不动，还是先以bbox比较iou为主           
 // TODO 随后需要更新nms处理策略

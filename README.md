@@ -1,4 +1,9 @@
 ## RM装甲板检测 -nanodet 四点
+
+>
+> 详细内容位于doc下的pdf文档中
+>
+
 更改nanodet，应用于RM装甲板检测
 
 `nanodet-fp-v0.1.0`

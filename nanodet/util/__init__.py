@@ -1,4 +1,4 @@
-from .box_transform import bbox2distance, distance2bbox, distance2pts, pts2distance # TODO 新增distance2pts
+from .box_transform import bbox2distance, distance2bbox, keypoints2distance, distance2keypoints
 from .check_point import (
     convert_avg_params,
     convert_old_model,
@@ -16,10 +16,11 @@ from .util_mixins import NiceRepr
 from .visualization import Visualizer, overlay_bbox_cv
 
 __all__ = [
+    # TODO:
+    "distance2keypoints",
+    "keypoints2distance",
     "distance2bbox",
     "bbox2distance",
-    "distance2pts",             # TODO  新增distance2pts
-    "pts2distance",
     "convert_old_model",
     "load_model_weight",
     "save_model",

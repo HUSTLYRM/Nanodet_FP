@@ -11,36 +11,36 @@ model:
     name: ExpMovingAverager
     decay: 0.9998
   arch:
-    name: NanoDetPlus              # NanoDetPlus
+    name: NanoDetPlus
     detach_epoch: 10
     backbone:
-      name: ShuffleNetV2           # 默认使用shuffleNetV2 
-      model_size: 1.0x             # 模型缩放系数，更大的模型就是相应地扩大各层feature map的大小
-      out_stages: [2,3,4]          # backbone中输出特征到FPN的stage
-      activation: LeakyReLU        # 激活函数
+      name: ShuffleNetV2
+      model_size: 1.0x
+      out_stages: [2,3,4]
+      activation: LeakyReLU
     fpn:
-      name: GhostPAN               # 用ghostNet的模块对不同特征层进行融合
-      in_channels: [116, 232, 464] # 输入fpn的geature map 尺寸
+      name: GhostPAN
+      in_channels: [116, 232, 464]
       out_channels: 96
-      kernel_size: 5               # 卷积核大小
+      kernel_size: 5
       num_extra_level: 1
-      use_depthwise: True          # 使用深度可分离卷积
-      activation: LeakyReLU        # 激活函数
+      use_depthwise: True
+      activation: LeakyReLU
     head:
-      name: NanoDetPlusHead        # 检测头
-      num_classes: 80              # 类别数
-      input_channel: 96            # 输入通道数
-      feat_channels: 96            # 
-      stacked_convs: 2             # head的卷积层数
-      kernel_size: 5               # 卷积核的大小
-      strides: [8, 16, 32, 64]     # 四个头，分别对应了不同尺度特征的检测，不同head检测时的下采样倍数
-      activation: LeakyReLU        # 激活函数
-      reg_max: 7                   # 用于dfl的参数，head的回归分支会预测框的分布，即用回归reg_max+1个离散的几个值来表示一个分布
+      name: NanoDetPlusHead
+      num_classes: 80
+      input_channel: 96
+      feat_channels: 96
+      stacked_convs: 2
+      kernel_size: 5
+      strides: [8, 16, 32, 64]
+      activation: LeakyReLU
+      reg_max: 7
       norm_cfg:
-        type: BN                   # head选用batch norm 进行归一化操作
+        type: BN
       loss:
         loss_qfl:
-          name: QualityFocalLoss  # loss继承了nanodet，使用GFL，并且这些loss有不同的权重
+          name: QualityFocalLoss
           use_sigmoid: True
           beta: 2.0
           loss_weight: 1.0
@@ -50,26 +50,22 @@ model:
         loss_bbox:
           name: GIoULoss
           loss_weight: 2.0
-    
     # Auxiliary head, only use in training time.
-    # 新增的辅助模块，（常规检测头，表达能力更强，只在训练的时候用）
     aux_head:
       name: SimpleConvHead
-      num_classes: 80             # 类别
-      input_channel: 192          # 输入通道数
+      num_classes: 80
+      input_channel: 192
       feat_channels: 192
-      stacked_convs: 4            # 四层卷积
-      strides: [8, 16, 32, 64]    # 对应四个头
+      stacked_convs: 4
+      strides: [8, 16, 32, 64]
       activation: LeakyReLU
       reg_max: 7
-
-
 data:
   train:
     name: CocoDataset
     img_path: coco/train2017
     ann_path: coco/annotations/instances_train2017.json
-    input_size: [320,320]               #[w,h]
+    input_size: [320,320] #[w,h]
     keep_ratio: False
     pipeline:
       perspective: 0.0
@@ -95,6 +91,7 @@ device:
   gpu_ids: [0] # Set like [0, 1, 2, 3] if you have multi-GPUs
   workers_per_gpu: 10
   batchsize_per_gpu: 96
+  precision: 32 # set to 16 to use AMP training
 schedule:
 #  resume:
 #  load_model:

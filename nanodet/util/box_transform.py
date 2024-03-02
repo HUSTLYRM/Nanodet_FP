@@ -1,12 +1,12 @@
 import torch
 
-
+# 将积分后的距离与锚点结合转换成真实的 bbox
 def distance2bbox(points, distance, max_shape=None):
     """Decode distance prediction to bounding box.
 
     Args:
-        points (Tensor): Shape (n, 2), [x, y].                  # 所有中心点的坐标 
-        distance (Tensor): Distance from the given point to 4   # 每个中心点对应的四个坐标
+        points (Tensor): Shape (n, 2), [x, y].
+        distance (Tensor): Distance from the given point to 4
             boundaries (left, top, right, bottom).
         max_shape (tuple): Shape of the image.
 
@@ -24,25 +24,23 @@ def distance2bbox(points, distance, max_shape=None):
         y2 = y2.clamp(min=0, max=max_shape[0])
     return torch.stack([x1, y1, x2, y2], -1)
 
-# TODO 仿照distance2bbox新增distance2pts
-def distance2pts(points, distance, max_shape=None):
-    """Decode distance prediction to bounding box.
-
-    Args:
-        points (Tensor): Shape (n, 2), [x, y].
-        distance (Tensor): Distance from the given point to 4
-            boundaries (left, top, right, bottom).
-        max_shape (tuple): Shape of the image.
-
-    Returns:
-        Tensor: Decoded bboxes.
-    """
+# TODO: 仿照distance2bbox新增distance2pts
+# 这里仅针对四点排序为:
+# 1  4
+# 2  3
+# 这一点限制了前面的发展
+# 所以要注意
+def distance2keypoints(points, distance, max_shape=None):
+    # 左上点
     x1 = points[..., 0] - distance[..., 0]
     y1 = points[..., 1] - distance[..., 1]
+    # 左下点
     x2 = points[..., 0] - distance[..., 2]
     y2 = points[..., 1] + distance[..., 3]
+    # 右下点
     x3 = points[..., 0] + distance[..., 4]
     y3 = points[..., 1] + distance[..., 5]
+    # 右上点
     x4 = points[..., 0] + distance[..., 6]
     y4 = points[..., 1] - distance[..., 7]
     if max_shape is not None:
@@ -80,31 +78,23 @@ def bbox2distance(points, bbox, max_dis=None, eps=0.1):
         bottom = bottom.clamp(min=0, max=max_dis - eps)
     return torch.stack([left, top, right, bottom], -1)
 
-# TODO 新增pts2distance
-def pts2distance(center, keypoints, max_dis=None, eps=0.1):
-    """Decode bounding box based on distances.
-
-    Args:
-        points (Tensor): Shape (n, 2), [x, y].
-        bbox (Tensor): Shape (n, 4), "xyxy" format
-        max_dis (float): Upper bound of the distance.
-        eps (float): a small value to ensure target < max_dis, instead <=
-
-    Returns:
-        Tensor: Decoded distances.
-    """
+# TODO: 个人觉得和上面的部分对应即可, 但是有待验证, 目前只适用于
+# 1  4 
+# 2  3
+# 这样排布的四关键点模型
+def keypoints2distance(center, keypoints, max_dis=None, eps=0.1):
+    # 左上点
     x1 = center[:, 0] - keypoints[:, 0]
     y1 = center[:, 1] - keypoints[:, 1]
-    # 左下
+    # 左下点
     x2 = center[:, 0] - keypoints[:, 2]
     y2 = keypoints[:, 3] - center[:, 1]
-    # 右下
+    # 右下点
     x3 = keypoints[:, 4] - center[:, 0]
     y3 = keypoints[:, 5] - center[:, 1]
-    # 右上
+    # 右上点
     x4 = keypoints[:, 6] - center[:, 0]
     y4 = center[:, 1] - keypoints[:, 7]
-
     if max_dis is not None:
         x1 = x1.clamp(min=0, max=max_dis - eps)
         y1 = y1.clamp(min=0, max=max_dis - eps)

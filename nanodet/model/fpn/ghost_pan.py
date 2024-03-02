@@ -71,8 +71,7 @@ class GhostBlocks(nn.Module):
             out = out + self.reduce_conv(x)
         return out
 
-# Backbone 传递下来的部分：三阶段
-# stage2, 3, 4    :   1x116x40x40   ->  1x232x20x20       ->   1x464x10x10
+
 class GhostPAN(nn.Module):
     """Path Aggregation Network with Ghost block.
 
@@ -98,14 +97,14 @@ class GhostPAN(nn.Module):
 
     def __init__(
         self,
-        in_channels,            # [116,232,464]
-        out_channels,           # 96
-        use_depthwise=False,    # True
+        in_channels,
+        out_channels,
+        use_depthwise=False,
         kernel_size=5,
         expand=1,
         num_blocks=1,
         use_res=False,
-        num_extra_level=0,      # config中给定的值是 1
+        num_extra_level=0,
         upsample_cfg=dict(scale_factor=2, mode="bilinear"),
         norm_cfg=dict(type="BN"),
         activation="LeakyReLU",
@@ -115,18 +114,13 @@ class GhostPAN(nn.Module):
         assert num_blocks >= 1
         self.in_channels = in_channels
         self.out_channels = out_channels
-       
+
         conv = DepthwiseConvModule if use_depthwise else ConvModule
 
-        # stage2, 3, 4    :   1x116x40x40   ->  1x232x20x20       ->   1x464x10x10
-        
         # build top-down blocks
         self.upsample = nn.Upsample(**upsample_cfg)
         self.reduce_layers = nn.ModuleList()
-        
-        # 各个  stage   都转换成    96  通道        ： 个人认为通道数先转成一样的，能更好地融合
         for idx in range(len(in_channels)):
-            # 卷积模块，1x1卷积
             self.reduce_layers.append(
                 ConvModule(
                     in_channels[idx],
@@ -136,9 +130,8 @@ class GhostPAN(nn.Module):
                     activation=activation,
                 )
             )
-
         self.top_down_blocks = nn.ModuleList()
-        for idx in range(len(in_channels) - 1, 0, -1):  # 从高层向下做特征融合
+        for idx in range(len(in_channels) - 1, 0, -1):
             self.top_down_blocks.append(
                 GhostBlocks(
                     out_channels * 2,
@@ -216,7 +209,6 @@ class GhostPAN(nn.Module):
         inputs = [
             reduce(input_x) for input_x, reduce in zip(inputs, self.reduce_layers)
         ]
-        
         # top-down path
         inner_outs = [inputs[-1]]
         for idx in range(len(self.in_channels) - 1, 0, -1):

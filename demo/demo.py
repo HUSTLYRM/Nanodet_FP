@@ -51,6 +51,7 @@ class Predictor(object):
         self.model = model.to(device).eval()
         self.pipeline = Pipeline(cfg.data.val.pipeline, cfg.data.val.keep_ratio)
 
+    # 主要的推理函数
     def inference(self, img):
         img_info = {"id": 0}
         if isinstance(img, str):

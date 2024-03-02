@@ -1,85 +1,3 @@
-## RM装甲板检测 -nanodet 四点
-
->
-> 详细内容位于doc下的pdf文档中
->
-
-更改nanodet，应用于RM装甲板检测
-
-`nanodet-fp-v0.1.0`
-- 参考了nanodet-plus-m_320-voc.yml，更改为nanodet-plus-m_320-voc.yml, 更改训练、测试路径、num_classes等，将COCO（json）更换为XML格式
-- 更改dataset中数据读取部分，新增points读取
-- loss部分新增WingLoss损失函数
-- 更新head，新增points回归，其实就是新增输出通道（不同于yolox，输出是聚合在一起的），参考bbox对points进行更新
-- 更新head中的标签分配，为了简化，并未对points分配，而是points直接利用bbox分配的结果（通用一套index索引）
-- 增加了大量辅助注释（部分参考了跃鹿战队的博客讲解，见Thanks）
-
-`nanodet-fp-v0.1.1`
-- 修复了数据读取的bug，在nanodet/data/transform/warp.py中新增了 warp_points() 函数
-- 补充了trian.py的注释
-
-`nanodet-fp-v0.2.0`
-- 更新了AGM部分的head，更好的辅助训练
-- 增加了openvino推理部分的代码
-- 增加了polygoniouloss损失函数代码
-
-`nanodet-fp-v0.2.1`
-- 更改了head部分后处理部分，包括了nms.py内的函数
-- 更改了验证的部分代码
-
-#### Train
-```
-python tools/train.py config/nanodet-plus-m_320-voc.yml
-```
-
-#### OpenVINO优化
-```
-python3 mo.py --input_model /home/zhiyu/nanodet/nanodet.onnx --output_dir /home/zhiyu/nanodet/ 
-```
-
-#### 服务器训练使用screen
-screen存在两种模式，Attached和Detached
-
-Attached: 可以认为是打开了终端，可以看做是有机器打开着这个终端
-
-Detached: 可以认为是挂起了中断，也就是没有机器直接连接这个终端，但是这个终端在处理进程
-
-注意：VScode等连接服务器，如果不进行screen挂起，当你关闭窗口，对应的训练进行会被kill，训练就停止了
-
-以下给出了最长用的几个相关命令（基本够用了），其余根据需要查阅资料
-
-```
-screen -S xxx       # 创建screen会话
-screen -ls          # 列出所有的screen，以及对应的状态
-screen -r xxx       # 如果这个screen是Detached，就连接上这个终端在本地显示（会加载之前终端中的内容）
-screen -d xxx       # 将某个screen挂起，一般是在另一个终端命令行中进行，手动关闭某一个终端，也会挂起这个终端
-```
-
-#### Visualize Log
-```
-cd <YOUR_SAVE_DIR>
-tensorboard --logdir ./
-```
-#### Export onnx
-```
-python tools/export_onnx.py --cfg_path ${CONFIG_PATH} --model_path ${PYTORCH_MODEL_PATH}
-```
-对于导出的onnx格式的模型，可以使用netron或者飞桨的visualDL，进行可视化，可以直观的观察
-#### Other
-在代码中使用了大量的TODO标签来指明具体修改的地方
-
-#### Thanks
-跃鹿战队对于nanodet目标检测的博客以及部分注释
-
-[跃鹿nanodet讲解博客](https://blog.csdn.net/NeoZng/article/details/123299419?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522167326527516800213011138%2522%252C%2522scm%2522%253A%252220140713.130102334..%2522%257D&request_id=167326527516800213011138&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~all~top_click~default-2-123299419-null-null.142^v70^wechat_v2,201^v4^add_ask&utm_term=nanodet&spm=1018.2226.3001.4187)
-
-#### 后续（挖个坑）
-根据其他人（NanoDet交流群）的建议，除了nanodet还可以考虑centernet或者rtmdet
-先改好nanodet部分，能够好用再细说
-
----
-## 以下为nanodet文档
-
 <div align="center">
 
 <img src="docs/imgs/Title.jpg" />
@@ -155,6 +73,8 @@ MobileDet      | 320*320 |   25.6   | -                    | -                  
 
 ## NEWS!!!
 
+* [2023.01.20] Upgrade to [pytorch-lightning-1.9](https://github.com/Lightning-AI/lightning/releases/tag/1.9.0). The minimum PyTorch version is upgraded to 1.10. Support FP16 training(Thanks @crisp-snakey). Support ignore label(Thanks @zero0kiriyu).
+
 * [2022.08.26] Upgrade to [pytorch-lightning-1.7](https://lightning.ai/). The minimum PyTorch version is upgraded to 1.9. To use previous version of PyTorch, please install [NanoDet <= v1.0.0-alpha-1](https://github.com/RangiLyu/nanodet/tags)
 
 * [2021.12.25] **NanoDet-Plus** release! Adding **AGM**(Assign Guidance Module) & **DSLA**(Dynamic Soft Label Assigner) to improve **7 mAP** with only a little cost.
@@ -221,10 +141,9 @@ Besides, We provide a notebook [here](./demo/demo-inference-with-pytorch.ipynb) 
 ### Requirements
 
 * Linux or MacOS
-* CUDA >= 10.0
-* Python >= 3.6
-* Pytorch >= 1.9
-* experimental support Windows (Notice: Windows not support distributed training before pytorch1.7)
+* CUDA >= 10.2
+* Python >= 3.7
+* Pytorch >= 1.10.0, <2.0.0
 
 ### Step
 
@@ -300,6 +219,8 @@ NanoDet-RepVGG        | RepVGG-A0          | 416*416  |  27.8  | 11.3G | 6.75M |
 1. **Prepare dataset**
 
     If your dataset annotations are pascal voc xml format, refer to [config/nanodet_custom_xml_dataset.yml](config/nanodet_custom_xml_dataset.yml)
+
+    Otherwise, if your dataset annotations are YOLO format ([Darknet TXT](https://github.com/AlexeyAB/Yolo_mark/issues/60#issuecomment-401854885)), refer to [config/nanodet-plus-m_416-yolo.yml](config/nanodet-plus-m_416-yolo.yml)
 
     Or convert your dataset annotations to MS COCO format[(COCO annotation format details)](https://cocodataset.org/#format-data).
 

@@ -33,7 +33,7 @@ def get_file_list(path, type=".xml"):
                 file_names.append(filename)
     return file_names
 
-# CocoXML类，xml格式
+
 class CocoXML(COCO):
     def __init__(self, annotation):
         """
@@ -53,13 +53,11 @@ class CocoXML(COCO):
         self.createIndex()
 
 
-# 数据处理相关内容，XMLDataset，继承了CocoDataset
 class XMLDataset(CocoDataset):
     def __init__(self, class_names, **kwargs):
         self.class_names = class_names
         super(XMLDataset, self).__init__(**kwargs)
 
-    # 将xml格式转换成coco格式
     def xml_to_coco(self, ann_path):
         """
         convert xml annotations to coco_api
@@ -78,20 +76,20 @@ class XMLDataset(CocoDataset):
                 {"supercategory": supercat, "id": idx + 1, "name": supercat}
             )
         ann_id = 1
-        for idx, xml_name in enumerate(ann_file_names):     # 将所有数据转换
+        for idx, xml_name in enumerate(ann_file_names):
             tree = ET.parse(os.path.join(ann_path, xml_name))
             root = tree.getroot()
             file_name = root.find("filename").text
             width = int(root.find("size").find("width").text)
             height = int(root.find("size").find("height").text)
-            info = {                                        # 组装图片的info
+            info = {
                 "file_name": file_name,
                 "height": height,
                 "width": width,
                 "id": idx + 1,
             }
             image_info.append(info)
-            for _object in root.findall("object"):          # 每张图片的所有object加入到数据
+            for _object in root.findall("object"):
                 category = _object.find("name").text
                 if category not in self.class_names:
                     logging.warning(
@@ -102,62 +100,41 @@ class XMLDataset(CocoDataset):
                 for cat in categories:
                     if category == cat["name"]:
                         cat_id = cat["id"]
-                xmin = int(_object.find("bndbox").find("xmin").text)        # voc 格式bbox两个点，左上点和右下点
+                xmin = int(_object.find("bndbox").find("xmin").text)
                 ymin = int(_object.find("bndbox").find("ymin").text)
                 xmax = int(_object.find("bndbox").find("xmax").text)
                 ymax = int(_object.find("bndbox").find("ymax").text)
-                w = xmax - xmin                                             # coco 格式需要的是x, y, w, h, 在这里进行处理
+                w = xmax - xmin
                 h = ymax - ymin
-
-                # TODO 新增points部分[x1, y1, x2, y2, x3, y3, x4, y4]   
-                x1 = int(_object.find("points").find("x1").text)
-                y1 = int(_object.find("points").find("y1").text)
-                x2 = int(_object.find("points").find("x2").text)
-                y2 = int(_object.find("points").find("y2").text)
-                x3 = int(_object.find("points").find("x3").text)
-                y3 = int(_object.find("points").find("y3").text)
-                x4 = int(_object.find("points").find("x4").text)
-                y4 = int(_object.find("points").find("y4").text)
-
-                if w < 0 or h < 0:                                          # 不合适的数据
+                if w < 0 or h < 0:
                     logging.warning(
                         "WARNING! Find error data in file {}! Box w and "
                         "h should > 0. Pass this box annotation.".format(xml_name)
                     )
                     continue
-
-                coco_box = [max(xmin, 0), max(ymin, 0), min(w, width), min(h, height)]  # 组装成coco数据bbox
-                
-                points = [x1, y1, x2, y2, x3, y3, x4, y4]       # TODO 新增points部分数据
-        
+                coco_box = [max(xmin, 0), max(ymin, 0), min(w, width), min(h, height)]
                 ann = {
-                    "image_id": idx + 1,    
-                    "bbox": coco_box,       # 重点关注  coco_box
-                    "points": points,       # 重点关注  TODO 新增points部分
-                    "category_id": cat_id,  # 重点关注  类别
+                    "image_id": idx + 1,
+                    "bbox": coco_box,
+                    "category_id": cat_id,
                     "iscrowd": 0,
                     "id": ann_id,
-                    "area": coco_box[2] * coco_box[3],      # w*h   面积
+                    "area": coco_box[2] * coco_box[3],
                 }
-
                 annotations.append(ann)
                 ann_id += 1
 
-        # 组装成一个数据集的coco_dict, 图片info的列表, 类别列表, annotations列表
         coco_dict = {
             "images": image_info,
-            "categories": categories,   
+            "categories": categories,
             "annotations": annotations,
         }
         logging.info(
             "Load {} xml files and {} boxes".format(len(image_info), len(annotations))
         )
         logging.info("Done (t={:0.2f}s)".format(time.time() - tic))
-        
-        # 将组装好的coco_dict数据, 返回
         return coco_dict
 
-    # 获取数据info
     def get_data_info(self, ann_path):
         """
         Load basic information of dataset such as image path, label and so on.
@@ -171,7 +148,7 @@ class XMLDataset(CocoDataset):
         ]
         """
         coco_dict = self.xml_to_coco(ann_path)
-        self.coco_api = CocoXML(coco_dict)              # 更改
+        self.coco_api = CocoXML(coco_dict)
         self.cat_ids = sorted(self.coco_api.getCatIds())
         self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
         self.cats = self.coco_api.loadCats(self.cat_ids)

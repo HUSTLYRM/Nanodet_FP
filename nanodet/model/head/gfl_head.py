@@ -33,6 +33,7 @@ def reduce_mean(tensor):
     return tensor
 
 
+# TODO: 修改了 积分 函数, 可以根据输出进行积分
 class Integral(nn.Module):
     """A fixed layer for calculating integral result from distribution.
     This layer calculates the target location by :math: `sum{P(y_i) * y_i}`,
@@ -44,9 +45,10 @@ class Integral(nn.Module):
             settings.
     """
 
-    def __init__(self, reg_max=16):
+    def __init__(self, reg_max=16, num_keypoints=4):
         super(Integral, self).__init__()
         self.reg_max = reg_max
+        self.num_keypoints = num_keypoints
         self.register_buffer(
             "project", torch.linspace(0, self.reg_max, self.reg_max + 1)
         )
@@ -62,10 +64,8 @@ class Integral(nn.Module):
                 offsets from the box center in four directions, shape (N, 4).
         """
         shape = x.size()
-        # x = F.softmax(x.reshape(*shape[:-1], 4, self.reg_max + 1), dim=-1)
-        # x = F.linear(x, self.project.type_as(x)).reshape(*shape[:-1], 4)
-        x = F.softmax(x.reshape(*shape[:-1], 12, self.reg_max + 1), dim=-1)     # TODO 修改积分，使得在完成bbox积分时，同时完成pts的积分
-        x = F.linear(x, self.project.type_as(x)).reshape(*shape[:-1], 12)
+        x = F.softmax(x.reshape(*shape[:-1], 4 + 2 * self.num_keypoints, self.reg_max + 1), dim=-1)
+        x = F.linear(x, self.project.type_as(x)).reshape(*shape[:-1], 4 + 2 * self.num_keypoints)
         return x
 
 

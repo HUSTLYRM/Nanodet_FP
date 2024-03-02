@@ -31,6 +31,7 @@ from ..model.arch import build_model
 from ..model.weight_averager import build_weight_averager
 
 
+# 继承 LightningModule
 class TrainingTask(LightningModule):
     """
     Pytorch Lightning module of a general training task.
@@ -136,7 +137,7 @@ class TrainingTask(LightningModule):
                     loss_name, loss_states[loss_name].mean().item()
                 )
             self.logger.info(log_msg)
-
+        # 调用 post_process 进行处理, 得到 dets
         dets = self.model.head.post_process(preds, batch)
         return dets
 
@@ -158,6 +159,7 @@ class TrainingTask(LightningModule):
             else results
         )
         if all_results:
+            # 调用 evaluate 进行评估, 结果为 all_results
             eval_results = self.evaluator.evaluate(
                 all_results, self.cfg.save_dir, rank=self.local_rank
             )
@@ -245,7 +247,6 @@ class TrainingTask(LightningModule):
         optimizer_idx=None,
         optimizer_closure=None,
         on_tpu=None,
-        using_native_amp=None,
         using_lbfgs=None,
     ):
         """
@@ -257,7 +258,6 @@ class TrainingTask(LightningModule):
             optimizer_idx: If you used multiple optimizers this indexes into that list.
             optimizer_closure: closure for all optimizers
             on_tpu: true if TPU backward is required
-            using_native_amp: True if using native amp
             using_lbfgs: True if the matching optimizer is lbfgs
         """
         # warm up lr

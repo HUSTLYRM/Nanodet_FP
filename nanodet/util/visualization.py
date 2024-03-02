@@ -22,36 +22,46 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 _SMALL_OBJECT_AREA_THRESH = 1000
 
 
-# 展示图片
+# 主要的绘制函数
 def overlay_bbox_cv(img, dets, class_names, score_thresh):
-    
-    # print(dets)      每个类对应一个列表， dets是一个字典 存放的内容为， {class_id : restlt_list}
-
     all_box = []
-    all_pts = []                                    # TODO 新增all_pts存储四点结果
     for label in dets:
-        for bbox in dets[label]:                    # 注意，这里的bbox，不是真的bbox，而是一条结果记录的表示
-            score = bbox[4]                         # TODO bbox中存放的顺序时，bbox，4个数据，score，1个数据，points，8个数据  和 nms.py中的 batched_nms 返回的结果要对应  
+        for bbox in dets[label]:
+            # 获取 score
+            score = bbox[-1]
+            # 超出阈值则选择 bbox
             if score > score_thresh:
-                x0, y0, x1, y1 = [int(i) for i in bbox[:4]]
-                all_box.append([label, x0, y0, x1, y1, score])
-                x1, y1, x2, y2, x3, y3, x4, y4 = [int(i) for i in bbox[5:13]]
-                all_pts.append([label, x1, y1, x2, y2, x3, y3, x4, y4, score])
+                x0, y0, x1, y1 = [int(i) for i in bbox[:4]]             # bbox
+                points = [int(i) for i in bbox[4 : -1]]                 # keypoints
+                all_box.append([label, x0, y0, x1, y1, points, score])  # 添加到 all_box
+    # 根据最后一个元素排序, 即得分排序
+    all_box.sort(key=lambda v: v[-1])
 
-    all_box.sort(key=lambda v: v[5])        
-    all_pts.sort(key=lambda v: v[9])            # TODO 仿照all_bbox.sort新增all_pts.sort
-
-    # for box in all_box:
-    for box, pts in zip(all_box, all_pts):      # TODO 修改绘制
-        label, x0, y0, x1, y1, score = box
+    for box in all_box:
+        # 获取 label, x0, y0, x1, y1, score
+        label, x0, y0, x1, y1, points, score = box
         # color = self.cmap(i)[:3]
         color = (_COLORS[label] * 255).astype(np.uint8).tolist()
         text = "{}:{:.1f}%".format(class_names[label], score * 100)
         txt_color = (0, 0, 0) if np.mean(_COLORS[label]) > 0.5 else (255, 255, 255)
         font = cv2.FONT_HERSHEY_SIMPLEX
         txt_size = cv2.getTextSize(text, font, 0.5, 2)[0]
-        # cv2.rectangle(img, (x0, y0), (x1, y1), color, 1)
 
+        # bbox
+        cv2.rectangle(img, (x0, y0), (x1, y1), color, 2)
+
+        # keypoints, 绘制线段
+        # for i in range(0, len(points), 2):
+        #     x, y = points[i : i+2]
+        #     cv2.circle(img, (int(x), int(y)), 3, color, -1)  # 绘制可见的关键点
+        connections = [(0, 1), (1, 3), (3, 2), (2, 0)]
+        for connection in connections:
+            idx1, idx2 = connection
+            x1, y1 = points[2 * idx1 : 2 * idx1 + 2]
+            x2, y2 = points[2 * idx2 : 2 * idx2 + 2]
+            cv2.line(img, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+
+        # label score 的 txt
         cv2.rectangle(
             img,
             (x0, y0 - txt_size[1] - 1),
@@ -60,14 +70,6 @@ def overlay_bbox_cv(img, dets, class_names, score_thresh):
             -1,
         )
         cv2.putText(img, text, (x0, y0 - 1), font, 0.5, txt_color, thickness=1)
-
-        # TODO 仿照绘制bbox的格式绘制pts
-        label, x1, y1, x2, y2, x3, y3, x4, y4, score = pts
-        cv2.line(img, (x1, y1), (x2, y2), color, 1)
-        cv2.line(img, (x2, y2), (x3, y3), color, 1)
-        cv2.line(img, (x3, y3), (x4, y4), color, 1)
-        cv2.line(img, (x4, y4), (x1, y1), color, 1)
-
     return img
 
 

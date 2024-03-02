@@ -55,8 +55,8 @@ class BaseDataset(Dataset, metaclass=ABCMeta):
         use_seg_mask: bool = False,
         use_keypoint: bool = False,
         load_mosaic: bool = False,
-        mode: str = "train",    
-        multi_scale: Optional[Tuple[float, float]] = None,      # 多尺度
+        mode: str = "train",
+        multi_scale: Optional[Tuple[float, float]] = None,
     ):
         assert mode in ["train", "val", "test"]
         self.img_path = img_path

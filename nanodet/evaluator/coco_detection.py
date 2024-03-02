@@ -22,7 +22,7 @@ import os
 import warnings
 
 import numpy as np
-from pycocotools.cocoeval import COCOeval
+from pycocotools.cocoeval import COCOeval       # 最终还是选择的是 COCOeval
 from tabulate import tabulate
 
 logger = logging.getLogger("NanoDet")

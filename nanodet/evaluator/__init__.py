@@ -14,12 +14,14 @@
 import copy
 
 from .coco_detection import CocoDetectionEvaluator
-
+from .coco_keypoints import CocoKeypointsEvaluator
 
 def build_evaluator(cfg, dataset):
     evaluator_cfg = copy.deepcopy(cfg)
     name = evaluator_cfg.pop("name")
     if name == "CocoDetectionEvaluator":
         return CocoDetectionEvaluator(dataset)
+    elif name == "CocoKeypointsEvaluator":
+        return CocoKeypointsEvaluator(dataset)
     else:
         raise NotImplementedError

@@ -7,8 +7,8 @@ from ..module.activation import act_layers
 model_urls = {
     "shufflenetv2_0.5x": "https://download.pytorch.org/models/shufflenetv2_x0.5-f707e7126e.pth",  # noqa: E501
     "shufflenetv2_1.0x": "https://download.pytorch.org/models/shufflenetv2_x1-5666bf0f80.pth",  # noqa: E501
-    "shufflenetv2_1.5x": None,
-    "shufflenetv2_2.0x": None,
+    "shufflenetv2_1.5x": "https://download.pytorch.org/models/shufflenetv2_x1_5-3c479a10.pth",  # noqa: E501
+    "shufflenetv2_2.0x": "https://download.pytorch.org/models/shufflenetv2_x2_0-8be3c8ee.pth",  # noqa: E501
 }
 
 
@@ -104,18 +104,18 @@ class ShuffleV2Block(nn.Module):
 class ShuffleNetV2(nn.Module):
     def __init__(
         self,
-        model_size="1.5x",                      # model大小
-        out_stages=(2, 3, 4),                   # 输出阶段，输出给neck阶段，方便后续进行特征融合
-        with_last_conv=False,   
-        kernal_size=3,                          # 卷积核大小
-        activation="ReLU",                      # 激活函数
-        pretrain=True,                          # 使用预训练
-    ):  
+        model_size="1.5x",
+        out_stages=(2, 3, 4),
+        with_last_conv=False,
+        kernal_size=3,
+        activation="ReLU",
+        pretrain=True,
+    ):
         super(ShuffleNetV2, self).__init__()
         # out_stages can only be a subset of (2, 3, 4)
         assert set(out_stages).issubset((2, 3, 4))
 
-        print("model size is ", model_size)     # 打印模型的大小 model_size()
+        print("model size is ", model_size)
 
         self.stage_repeats = [4, 8, 4]
         self.model_size = model_size
@@ -123,11 +123,10 @@ class ShuffleNetV2(nn.Module):
         self.with_last_conv = with_last_conv
         self.kernal_size = kernal_size
         self.activation = activation
-
         if model_size == "0.5x":
             self._stage_out_channels = [24, 48, 96, 192, 1024]
         elif model_size == "1.0x":
-            self._stage_out_channels = [24, 116, 232, 464, 1024]            # 模型大小为1.0时，所有输出的通道数
+            self._stage_out_channels = [24, 116, 232, 464, 1024]
         elif model_size == "1.5x":
             self._stage_out_channels = [24, 176, 352, 704, 1024]
         elif model_size == "2.0x":
@@ -136,37 +135,26 @@ class ShuffleNetV2(nn.Module):
             raise NotImplementedError
 
         # building first layer
-        input_channels = 3                                              # 输入通道数
-
-        output_channels = self._stage_out_channels[0]                   # 输出通道数
-
-        # 第一层卷积    1x3x320x320 ->  1x24x160x160
-        self.conv1 = nn.Sequential(                                     # 构造第一个卷积
-            nn.Conv2d(input_channels, output_channels, 3, 2, 1, bias=False),    # kernel大小为3, 步长为2(使得height和width各缩小一半), 不设置bias偏置项
-            nn.BatchNorm2d(output_channels),                            # BN处理，归一化
-            act_layers(activation),                                     # 激活函数
+        input_channels = 3
+        output_channels = self._stage_out_channels[0]
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(input_channels, output_channels, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(output_channels),
+            act_layers(activation),
         )
-
         input_channels = output_channels
 
-        # 池化层：1x24x160x160  -> 1x24x80x80
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)  # 池化层用来减少参数 步长为2，可以让height和width各缩小一半
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         stage_names = ["stage{}".format(i) for i in [2, 3, 4]]
-        
-        # stage2,3,4    :   1x116x40x40   ->  1x232x20x20       ->   1x464x10x10
-
-        # 后面几个阶段 name: [2,3,4]      repeats: [4,8,4]    output_channels: [116,232,464]
         for name, repeats, output_channels in zip(
             stage_names, self.stage_repeats, self._stage_out_channels[1:]
         ):
-            # 第一个shuffleV2Block
             seq = [
                 ShuffleV2Block(
                     input_channels, output_channels, 2, activation=activation
                 )
             ]
-            # 重复几个shuffleV2Block
             for i in range(repeats - 1):
                 seq.append(
                     ShuffleV2Block(
@@ -175,9 +163,7 @@ class ShuffleNetV2(nn.Module):
                 )
             setattr(self, name, nn.Sequential(*seq))
             input_channels = output_channels
-
         output_channels = self._stage_out_channels[-1]
-        # backbone最后一层卷积层：默认不采用
         if self.with_last_conv:
             conv5 = nn.Sequential(
                 nn.Conv2d(input_channels, output_channels, 1, 1, 0, bias=False),
@@ -188,15 +174,11 @@ class ShuffleNetV2(nn.Module):
         self._initialize_weights(pretrain)
 
     def forward(self, x):
-        # 第一层卷积
         x = self.conv1(x)
-        # 池化层
         x = self.maxpool(x)
-        # 输出阶段
         output = []
-        # 将[2,3,4]输出结果转换成元组tuple
         for i in range(2, 5):
-            stage = getattr(self, "stage{}".format(i))  # stage2,3,4
+            stage = getattr(self, "stage{}".format(i))
             x = stage(x)
             if i in self.out_stages:
                 output.append(x)

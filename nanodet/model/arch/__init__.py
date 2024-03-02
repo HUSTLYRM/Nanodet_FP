@@ -18,7 +18,7 @@ import warnings
 from .nanodet_plus import NanoDetPlus
 from .one_stage_detector import OneStageDetector
 
-
+# 根据配置文件构建网络
 def build_model(model_cfg):
     model_cfg = copy.deepcopy(model_cfg)
     name = model_cfg.arch.pop("name")

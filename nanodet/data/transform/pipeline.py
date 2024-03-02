@@ -38,7 +38,7 @@ class LegacyPipeline:
         meta = self.color(meta=meta)
         return meta
 
-
+# 数据 pipeline
 class Pipeline:
     """Data process pipeline. Apply augmentation and pre-processing on
     meta_data from dataset.
